@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0-windows7.0</TargetFramework>
+	<UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationIcon>favicon.ico</ApplicationIcon>
+	<AssemblyName>Borrow Go Check</AssemblyName>
+	<PackageId>DEVX_BIZCOM</PackageId>
+	<Authors>SAMSUDIN MAMA</Authors>
+	<Company>SAMSUDIN MAMA BIZCOM PTNICEC</Company>
+	<Product>Borrow Go Check</Product>
+	<Description>โปรแกรมนี้ใช้งานสำหรับตรวจสอบการยืมของอุปกรณ์ สาขาวิชาเทคโนโลยีธุรกิจดิจิทัล พัฒนาโดยนายซัมซูดิน มามะ</Description>
+	<PackageIcon>apple-icon-120x120.png</PackageIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="favicon.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\Suding58\bizcom-brrowgo\public\icons\apple-icon-120x120.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="System.Management" Version="9.0.5" />
+  </ItemGroup>
+
+</Project>
