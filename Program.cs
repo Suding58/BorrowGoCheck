@@ -20,7 +20,7 @@ namespace BorrowGoCheck
 
         static string apiUrl = $"http://{ip}:{port}";
         static string apiCheckUrl = $"{apiUrl}/api/check-stat";
-        const int checkIntervalSeconds = 60;
+        const int checkIntervalSeconds = 40;
         static string? hwid = null;
         static int? itemId = null;
 
@@ -28,7 +28,7 @@ namespace BorrowGoCheck
         static bool isOnline = false;
 
         static string messageCommand = "";
-
+        static bool showingBlockMessage = false;
 
         [DllImport("Kernel32")]
         private static extern bool SetConsoleCtrlHandler(SetConsoleCtrlEventHandler handler, bool add);
@@ -92,13 +92,13 @@ namespace BorrowGoCheck
 
                         if (!isOnline)
                         {
-                            await UpdateOnlineStatus(true);
+                            UpdateOnlineStatus(true);
                             isOnline = true;
                         }
 
                         if (itemData == null)
                         {
-                            await RegisterHardwareId();
+                             RegisterHardwareId();
                         }
                         else if (itemData.status != "BORROWED")
                         {
@@ -113,7 +113,7 @@ namespace BorrowGoCheck
                                 _ => "เครื่องไม่ถูกลงทะเบียนยืมคืน\nกรุณาแจ้งผู้ดูแลระบบ"
                             };
                             PlaySoundWithNAudio($"{status}_SOUND.mp3");
-                            await ShowBlockingMessageBox(warningMessage, 30);
+                            ShowBlockingMessageBox(warningMessage, 30);
                         }
                     }
                     else
@@ -140,7 +140,7 @@ namespace BorrowGoCheck
                     {
                         var itemData = await CheckStatus();
                         if (itemData != null)
-                            await CheckAdminCommands();
+                            CheckAdminCommands();
                     }
                 }
                 catch (Exception ex)
@@ -171,7 +171,7 @@ namespace BorrowGoCheck
             }
         }
 
-        static async Task UpdateOnlineStatus(bool isOnline)
+        static async void UpdateOnlineStatus(bool isOnline)
         {
 
             try
@@ -187,7 +187,7 @@ namespace BorrowGoCheck
             }
         }
 
-        static async Task PlaySoundWithNAudio(string soundFileName)
+        static async void PlaySoundWithNAudio(string soundFileName)
         {
             try
             {
@@ -229,7 +229,7 @@ namespace BorrowGoCheck
             }
         }
 
-        static async Task RegisterHardwareId()
+        static async void RegisterHardwareId()
         {
             using (HttpClient client = new HttpClient())
             {
@@ -307,80 +307,65 @@ namespace BorrowGoCheck
             return null;
         }
 
-        public static void ShowCustomMessageBox(string message, string title = "MESSAGE", MessageBoxButtons buttons = MessageBoxButtons.OK, MessageBoxIcon icon = MessageBoxIcon.Information)
+        static async void CheckAdminCommands()
         {
-            // สร้างฟอร์มชั่วคราวที่เป็น TopMost
-            Form topmostForm = new Form()
+            try
             {
-                TopMost = true,
-                StartPosition = FormStartPosition.Manual,
-                Size = new System.Drawing.Size(1, 1),
-                ShowInTaskbar = false,
-                FormBorderStyle = FormBorderStyle.None
-            };
-
-            // แสดงฟอร์มแล้วซ่อนไว้ (ต้อง Show ก่อนเรียก MessageBox)
-            topmostForm.Show();
-            topmostForm.Hide();
-
-            // แสดง MessageBox ด้วย owner เป็นฟอร์ม topmost
-            MessageBox.Show(topmostForm, message, title, buttons, icon);
-
-            // ปิดฟอร์มชั่วคราว
-            topmostForm.Dispose();
-        }
-
-        static async Task CheckAdminCommands()
-        {
-            using (HttpClient client = new HttpClient())
-            {
-                var response = await client.GetAsync($"{apiUrl}/api/manage-items/command/{itemId}");
-                if (response.IsSuccessStatusCode)
+                using (HttpClient client = new HttpClient())
                 {
-                    string json = await response.Content.ReadAsStringAsync();
-                    if (JsonHelper.IsValidJson(json))
+                    var response = await client.GetAsync($"{apiUrl}/api/manage-items/command/{itemId}");
+                    if (response.IsSuccessStatusCode)
                     {
-                        using var doc = JsonDocument.Parse(json);
-                        var root = doc.RootElement;
-                        if (root.GetProperty("success").GetBoolean())
+                        string json = await response.Content.ReadAsStringAsync();
+                        if (JsonHelper.IsValidJson(json))
                         {
-                            var data = root.GetProperty("data").EnumerateArray();
-                            foreach (var cmd in data)
+                            using var doc = JsonDocument.Parse(json);
+                            var root = doc.RootElement;
+                            if (root.GetProperty("success").GetBoolean())
                             {
-                                int commandId = cmd.GetProperty("id").GetInt32();
-                                string command = cmd.GetProperty("command").GetString();
-
-                                switch (command)
+                                var data = root.GetProperty("data").EnumerateArray();
+                                foreach (var cmd in data)
                                 {
-                                    case "MESSAGE_BOX":
-                                        string message = cmd.GetProperty("message").GetString();
-                                        if (message?.Length > 0)
-                                        {
-                                            messageCommand = message;
-                                            ShowCustomMessageBox(message);
-                                        }
-                                        //MessageBox.Show(message, "MESSAGE", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                                        break;
+                                    int commandId = cmd.GetProperty("id").GetInt32();
+                                    string command = cmd.GetProperty("command").GetString();
 
-                                    case "SHUTDOWN":
-                                        ShutdownPC();
-                                        break;
+                                    DeleteCommand(commandId);
 
-                                    case "RESTART":
-                                        RestartPC();
-                                        break;
+                                    switch (command)
+                                    {
+                                        case "MESSAGE_BOX":
+                                            string message = cmd.GetProperty("message").GetString();
+                                            if (message?.Length > 0)
+                                            {
+                                                messageCommand = message;
+                                                if (!showingBlockMessage)
+                                                    ShowBlockingMessageBox(message, 10);
+                                            }
+                                            break;
+
+                                        case "SHUTDOWN":
+                                            ShutdownPC();
+                                            break;
+
+                                        case "RESTART":
+                                            RestartPC();
+                                            break;
+                                    }
+
                                 }
 
-                                await DeleteCommand(commandId);
                             }
-
                         }
                     }
                 }
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ พบข้อผิดพลาดระหว่างตรวจสอบคำสั่ง: {ex.Message}");
+            }
         }
 
-        static async Task DeleteCommand(int commandId)
+        static async void DeleteCommand(int commandId)
         {
             using (HttpClient client = new HttpClient())
             {
@@ -414,7 +399,7 @@ namespace BorrowGoCheck
             });
         }
 
-        static async Task ShowBlockingMessageBox(string message, int seconds)
+        static async void ShowBlockingMessageBox(string message, int seconds)
         {
             // ใช้ Invoke เพื่อให้แน่ใจว่าทำงานใน UI Thread
             await Task.Run(() =>
@@ -427,13 +412,12 @@ namespace BorrowGoCheck
 
                 Form form = new Form()
                 {
-                    Width = 1200,
-                    Height = 600,
-                    StartPosition = FormStartPosition.CenterScreen,
+                    WindowState = FormWindowState.Maximized,
                     FormBorderStyle = FormBorderStyle.None,
+                    StartPosition = FormStartPosition.Manual,
                     ControlBox = false,
                     ShowInTaskbar = false,
-                    TopMost = true, // ตั้งก่อน Show
+                    TopMost = true
                 };
 
                 Label label = new Label()
@@ -441,7 +425,7 @@ namespace BorrowGoCheck
                     Text = message,
                     Dock = DockStyle.Fill,
                     TextAlign = ContentAlignment.MiddleCenter,
-                    Font = new System.Drawing.Font("Tahoma", 16, FontStyle.Bold)
+                    Font = new System.Drawing.Font("Tahoma", 32, FontStyle.Bold) // เพิ่มขนาดฟอนต์หากเต็มจอ
                 };
 
                 form.Controls.Add(label);
@@ -449,7 +433,7 @@ namespace BorrowGoCheck
                 var timer = new System.Windows.Forms.Timer();
                 timer.Interval = 1000;
                 int count = seconds;
-
+                showingBlockMessage = true;
                 timer.Tick += (s, e) =>
                 {
                     count--;
@@ -461,6 +445,7 @@ namespace BorrowGoCheck
 
                     if (count <= 0)
                     {
+                        showingBlockMessage = false;
                         timer.Stop();
                         form.Close();
                     }
