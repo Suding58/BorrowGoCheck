@@ -399,72 +399,83 @@ namespace BorrowGoCheck
             });
         }
 
-        static async void ShowBlockingMessageBox(string message, int seconds)
+        static void ShowBlockingMessageBox(string message, int seconds)
         {
-            // ใช้ Invoke เพื่อให้แน่ใจว่าทำงานใน UI Thread
-            await Task.Run(() =>
+            if (Application.MessageLoop)
             {
-                if (Application.OpenForms.Count == 0)
+                // รันใน UI thread โดยตรง
+                ShowFormBlocking(message, seconds);
+            }
+            else
+            {
+                // เรียกผ่าน Application.Run ถ้าไม่มี UI
+                Thread uiThread = new Thread(() =>
                 {
-                    Application.EnableVisualStyles();
+                    Application.EnableVisualStyles(); // เฉพาะกรณีต้องการรัน form ใหม่จาก scratch
                     Application.SetCompatibleTextRenderingDefault(false);
+                    ShowFormBlocking(message, seconds);
+                    Application.Run(); // รัน loop แยกถ้าไม่มีอยู่แล้ว
+                });
+
+                uiThread.SetApartmentState(ApartmentState.STA);
+                uiThread.Start();
+            }
+        }
+
+        static void ShowFormBlocking(string message, int seconds)
+        {
+            Form form = new Form()
+            {
+                WindowState = FormWindowState.Maximized,
+                FormBorderStyle = FormBorderStyle.None,
+                StartPosition = FormStartPosition.Manual,
+                ControlBox = false,
+                ShowInTaskbar = false,
+                TopMost = true
+            };
+
+            Label label = new Label()
+            {
+                Text = message,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = new System.Drawing.Font("Tahoma", 32, FontStyle.Bold)
+            };
+
+            form.Controls.Add(label);
+
+            var timer = new System.Windows.Forms.Timer();
+            timer.Interval = 1000;
+            int count = seconds;
+            showingBlockMessage = true;
+            timer.Tick += (s, e) =>
+            {
+                count--;
+                if (messageCommand.Length > 0)
+                {
+                    label.Text = messageCommand;
+                    messageCommand = "";
                 }
 
-                Form form = new Form()
+                if (count <= 0)
                 {
-                    WindowState = FormWindowState.Maximized,
-                    FormBorderStyle = FormBorderStyle.None,
-                    StartPosition = FormStartPosition.Manual,
-                    ControlBox = false,
-                    ShowInTaskbar = false,
-                    TopMost = true
-                };
+                    showingBlockMessage = false;
+                    timer.Stop();
+                    form.Close();
+                }
+            };
 
-                Label label = new Label()
-                {
-                    Text = message,
-                    Dock = DockStyle.Fill,
-                    TextAlign = ContentAlignment.MiddleCenter,
-                    Font = new System.Drawing.Font("Tahoma", 32, FontStyle.Bold) // เพิ่มขนาดฟอนต์หากเต็มจอ
-                };
-
-                form.Controls.Add(label);
-
-                var timer = new System.Windows.Forms.Timer();
-                timer.Interval = 1000;
-                int count = seconds;
-                showingBlockMessage = true;
-                timer.Tick += (s, e) =>
-                {
-                    count--;
-                    if(messageCommand.Length > 0)
-                    {
-                        label.Text = messageCommand;
-                        messageCommand = "";
-                    }
-
-                    if (count <= 0)
-                    {
-                        showingBlockMessage = false;
-                        timer.Stop();
-                        form.Close();
-                    }
-                };
-
-                // ✅ Force TopMost หลังจาก Show
-                form.Shown += (s, e) =>
-                {
-                    timer.Start();
-                    form.TopMost = false; // Reset
-                    form.TopMost = true;  // Force refresh
-                    form.BringToFront();  // Bring to front
-                    form.Activate();      // Activate form
-                };
-
-                // ✅ ตั้งค่า TopMost อีกครั้งก่อน ShowDialog
+            form.Shown += (s, e) =>
+            {
+                timer.Start();
+                form.TopMost = false;
                 form.TopMost = true;
-                form.ShowDialog();
-            });
+                form.BringToFront();
+                form.Activate();
+            };
+
+            form.TopMost = true;
+            form.ShowDialog();
         }
     }
 }

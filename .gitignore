@@ -69,6 +69,8 @@ ScaffoldingReadMe.txt
 # StyleCop
 StyleCopReport.xml
 
+Output
+
 # Files built by Visual Studio
 *_i.c
 *_p.c
