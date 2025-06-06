@@ -1,7 +1,10 @@
 ﻿using NAudio.Wave;
 using System.Configuration;
 using System.Management;
+using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace BorrowGoCheck
@@ -234,15 +237,7 @@ namespace BorrowGoCheck
             using (HttpClient client = new HttpClient())
             {
                 string computerName = Environment.MachineName;
-                var response = await client.PutAsync($"{apiUrl}/api/com-name/{computerName.ToUpper()}/{hwid}", null);
-                if (response.IsSuccessStatusCode)
-                {
-                    Console.WriteLine($"✅ ลงทะเบียน HWID สำเร็จ: {hwid} -> {computerName}");
-                }
-                else
-                {
-                    Console.WriteLine($"❌ ลงทะเบียน HWID ไม่สำเร็จ: {response.StatusCode}");
-                }
+                await client.PutAsync($"{apiUrl}/api/com-name/{computerName.ToUpper()}/{hwid}", null);
             }
         }
 
@@ -270,15 +265,47 @@ namespace BorrowGoCheck
 
         static string GetHardwareId()
         {
-            string result = "";
-            var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_Processor");
-            foreach (var obj in searcher.Get())
+            string cpuId = GetWMIValue("Win32_Processor", "ProcessorId");
+            string macAddress = GetMacAddress();
+
+            string combined = $"{cpuId}-{macAddress}";
+
+            using (var sha256 = SHA256.Create())
             {
-                result = obj["ProcessorId"].ToString();
-                break;
+                byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(combined));
+                return BitConverter.ToString(hash).Replace("-", "").ToLower();
             }
-            return result;
         }
+
+        static string GetWMIValue(string wmiClass, string wmiProperty)
+        {
+            try
+            {
+                using var searcher = new ManagementObjectSearcher($"SELECT {wmiProperty} FROM {wmiClass}");
+                foreach (var obj in searcher.Get())
+                {
+                    return obj[wmiProperty]?.ToString() ?? "";
+                }
+            }
+            catch { }
+            return "";
+        }
+
+        static string GetMacAddress()
+        {
+            try
+            {
+                return NetworkInterface
+                    .GetAllNetworkInterfaces()
+                    .Where(nic => nic.OperationalStatus == OperationalStatus.Up &&
+                                  nic.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+                    .Select(nic => nic.GetPhysicalAddress().ToString())
+                    .FirstOrDefault() ?? "";
+            }
+            catch { }
+            return "";
+        }
+
 
         static async Task<dynamic> CheckStatus()
         {
