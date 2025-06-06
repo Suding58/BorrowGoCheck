@@ -6,7 +6,7 @@
 	<UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <ApplicationIcon>favicon.ico</ApplicationIcon>
+    <ApplicationIcon>bizcom-icon.ico</ApplicationIcon>
 	<AssemblyName>Borrow-Go-Check</AssemblyName>
 	<PackageId>DEVX_BIZCOM</PackageId>
 	<Authors>SAMSUDIN MAMA</Authors>
@@ -17,14 +17,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="favicon.ico" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="..\Suding58\bizcom-brrowgo\public\icons\apple-icon-120x120.png">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
+    <Content Include="bizcom-icon.ico" />
   </ItemGroup>
 
   <ItemGroup>

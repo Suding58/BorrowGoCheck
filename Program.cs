@@ -96,7 +96,7 @@ namespace BorrowGoCheck
                             isOnline = true;
                         }
 
-                        if (itemData == null)
+                        if (itemData == null || itemData?.hwid == null || itemData?.hwid == "")
                         {
                              RegisterHardwareId();
                         }
@@ -298,7 +298,8 @@ namespace BorrowGoCheck
                             return new
                             {
                                 id = data.GetProperty("id").GetInt32(),
-                                status = data.GetProperty("status").GetString()
+                                status = data.GetProperty("status").GetString(),
+                                hwid = data.GetProperty("hwid").GetString(),
                             };
                         }
                     }
